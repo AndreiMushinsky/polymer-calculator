@@ -1,0 +1,217 @@
+<link rel="import" href="../bower_components/polymer/polymer.html">
+<!-- <link rel="import" href="../bower_components/paper-slider/paper-slider.html">
+ -->
+<dom-module id="web-calculator">
+  <template>
+    <style>
+      :host {
+        display: block;
+        width: 300px;
+        height: 330px;
+        border: 3px solid black;
+        border-radius: 5px;
+      }
+      #screen {
+        width: 84%;
+        padding: 5%;
+        height: 60px;
+      }
+      #control {
+        width: 100%;
+        margin: 5%;
+        height: 270px;
+      }
+      input {
+        width: 100%;
+        border: 0px;
+        box-shadow: none;
+        text-align: right;
+        padding: 3%;
+      }
+      input:focus {
+        outline: none;
+        box-shadow: none;
+        border: 0px;
+      }
+      input:focus:hover {
+        outline: none;
+        box-shadow: none;
+        border: 0px;
+      }
+      #screen-expression {
+        height: 30%;
+        border-color: black;
+        border-style: solid;
+        border-width: 2px 2px 0px 2px;
+        border-radius: 5px 5px 0px 0px;
+      }
+      #screen-result {
+        height: 60%;
+        border-color: black;
+        border-style: solid;
+        border-width: 0px 2px 2px 2px;
+        font-size: 200%;
+        font-family: "Lucida Console", Monaco, monospace;
+        border-radius: 0px 0px 5px 5px;
+      }
+      button {
+        width: 42px;
+        height: 38px;
+        margin: 4px;
+        font-size: 120%;
+        background-color: white;
+      }
+      td[rowspan] button {
+        height: 86px;
+      }
+      td[colspan] button {
+        width: 96px;
+      }
+    </style>
+    <div id="screen">
+      <input id="screen-expression" type="text" value="[[expression]]" autocomplete="off"></input>
+      <input id="screen-result" type="text" value="[[result]]" autocomplete="off"></input>
+    </div>
+    <div id="control">
+      <table>
+        <tr>
+          <td><button on-tap="addNumber">7</button></td>
+          <td><button on-tap="addNumber">8</button></td>
+          <td><button on-tap="addNumber">9</button></td>
+          <td><button on-tap="addOperation">/</button></td>
+          <td><button on-tap="clear">C</button></td>
+        </tr>
+        <tr>
+          <td><button on-tap="addNumber">4</button></td>
+          <td><button on-tap="addNumber">5</button></td>
+          <td><button on-tap="addNumber">6</button></td>
+          <td><button on-tap="addOperation">*</button></td>
+          <td><button on-tap="backspace">⌫</button></td>
+        </tr>
+        <tr>
+          <td><button on-tap="addNumber">1</button></td>
+          <td><button on-tap="addNumber">2</button></td>
+          <td><button on-tap="addNumber">3</button></td>
+          <td><button on-tap="addOperation">-</button></td>
+          <td rowspan="2"><button on-tap="compute">=</button></td>
+        </tr>
+        <tr>
+          <td colspan="2"><button on-tap="addNumber">0</button></td>
+          <td><button on-tap="addDot">.</button></td>
+          <td><button on-tap="addOperation">+</button></td>
+        </tr>                
+      </table>
+    </div>
+  </template>
+  <script>
+    Polymer({
+      is: 'web-calculator',
+      properties: {
+        result: {
+          type: String,
+          value: '0' 
+        },
+        expression: {
+          type: String,
+          computed: '_computeExpression(computationStack, computationStack.*)'
+        },
+        isHalfExpression: {
+          type: Boolean,
+          value: false
+        },
+        computationStack: {
+          type: Array,
+          value: function() { return []; }
+        }
+        
+      },
+      addNumber: function(e) {
+        var num = parseInt(e.target.innerHTML);
+        if (this.isHalfExpression) {
+          this.isHalfExpression = false;
+          this.result = String(num);
+        }
+        else if (this.result.length >= 14) {
+          return;
+        }
+        else if (this._isFractional()) {
+          this.result += num;
+        } 
+        else {
+          this.result = this.result * 10 + num + '';  
+        }
+      },
+      addDot: function() {
+        if (this.isHalfExpression) {
+          this.isHalfExpression = false;
+          this.result = '0.';
+        }
+        else if (this.result.length >= 14) {
+          return;
+        }
+        else if (!this._isFractional()) {
+          this.result += '.';
+        }
+      },
+      addOperation: function(e) {
+        var operator = e.target.innerHTML;
+        if (this.isHalfExpression) {
+          this.computationStack.pop();
+        } else {
+          this.isHalfExpression = true;
+          this.computationStack.push(parseFloat(this.result));
+        }
+        this._computeResult();
+        this.push('computationStack', operator);
+      },
+      backspace: function() {
+        if (this.isHalfExpression) return;
+
+        var length = this.result.length;
+        if (length === 1) {
+          this.result = '0';
+        } else {
+          this.result = this.result.substr(0, length - 1);
+        }
+      },
+      clear: function() {
+        this.result = '0';
+        this.computationStack = [];
+      },
+      compute: function() {
+        this.computationStack.push(parseFloat(this.result));
+        this._computeResult();
+        this.computationStack = [];  
+      },
+      _computeExpression: function() {
+        return this.computationStack.join(' ');
+      },
+      _computeResult: function() {
+        var result = 0;
+        var operator = '+'
+        this.computationStack.forEach(function(item) {
+          if (!isNaN(item)) {
+            switch (operator) {
+              case '+': return (result += item);
+              case '-': return (result -= item);
+              case '*': return (result *= item);
+              case '/': return (result /= item);
+            }
+          } else {
+            operator = item;
+          }
+        });
+        var stringResult = result + '';
+        if (stringResult.length > 14) {
+          this.result = result.toExponential(6);
+        } else {
+          this.result = stringResult;  
+        }
+      },
+      _isFractional: function() {
+        return this.result.indexOf('.') > -1;
+      }
+
+    });
+  </script>
+</dom-module>
